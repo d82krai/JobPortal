@@ -1,0 +1,361 @@
+openapi: 3.0.3
+info:
+  title: Job Aggregator Core API
+  version: 1.0.0
+  description: Core APIs for auth, users, companies, and candidate profiles.
+servers:
+  - url: https://api.example.com/api/v1
+    description: Production
+  - url: https://sandbox.api.example.com/api/v1
+    description: Sandbox
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        lastActiveAt:
+          type: string
+          format: date-time
+        presenceStatus:
+          type: string
+          enum: [Online, Away, Offline]
+    Company:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        logoUrl:
+          type: string
+        industry:
+          type: string
+        website:
+          type: string
+        description:
+          type: string
+        averageRating:
+          type: number
+          format: float
+    CandidateProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        currentTitle:
+          type: string
+        totalExperienceYears:
+          type: number
+          format: float
+        locationCity:
+          type: string
+        locationCountry:
+          type: string
+        jobSearchMode:
+          type: string
+          enum: [Aggressive, Active, Moderate, Passive, NotLooking]
+        headline:
+          type: string
+        summary:
+          type: string
+    CandidateSearchResult:
+      allOf:
+        - $ref: '#/components/schemas/CandidateProfile'
+        - type: object
+          properties:
+            lastActiveAt:
+              type: string
+              format: date-time
+            presenceStatus:
+              type: string
+              enum: [Online, Away, Offline]
+            maskedEmail:
+              type: string
+            maskedPhone:
+              type: string
+paths:
+  /auth/register:
+    post:
+      summary: Register new user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, firstName, lastName]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                role:
+                  type: string
+                  description: Preferred initial role (Candidate/EmployerRecruiter/etc.)
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+  /auth/login:
+    post:
+      summary: Login
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+  /users/me:
+    get:
+      summary: Get current user
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    patch:
+      summary: Update current user
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+  /users/me/heartbeat:
+    post:
+      summary: Heartbeat to update presence and lastActiveAt
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Updated
+  /companies:
+    post:
+      summary: Create company
+      tags: [Companies]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                industry:
+                  type: string
+                website:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Company created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Company'
+  /companies/{id}:
+    get:
+      summary: Get company
+      tags: [Companies]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Company
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Company'
+    patch:
+      summary: Update company
+      tags: [Companies]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Updated company
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Company'
+  /candidates/me:
+    get:
+      summary: Get current candidate profile
+      tags: [Candidates]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Candidate profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateProfile'
+    patch:
+      summary: Update candidate profile
+      tags: [Candidates]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Updated candidate profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateProfile'
+  /candidates/search:
+    get:
+      summary: Search candidates (employers/recruiters)
+      tags: [Candidates]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: skills
+          in: query
+          schema:
+            type: string
+            description: Comma-separated skill names
+        - name: location
+          in: query
+          schema:
+            type: string
+        - name: jobSearchMode
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CandidateSearchResult'
+                  total:
+                    type: integer
+
+

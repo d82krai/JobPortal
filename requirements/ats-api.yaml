@@ -1,0 +1,361 @@
+openapi: 3.0.3
+info:
+  title: Job Aggregator ATS API
+  version: 1.0.0
+  description: APIs for job postings, applications, screenings, and assessments linkage.
+servers:
+  - url: https://api.example.com/api/v1
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    JobPosting:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        companyId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        locationCity:
+          type: string
+        locationCountry:
+          type: string
+        status:
+          type: string
+          enum: [Draft, PendingApproval, Published, OnHold, Closed, Archived]
+        publishedAt:
+          type: string
+          format: date-time
+    Application:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        jobPostingId:
+          type: string
+          format: uuid
+        candidateProfileId:
+          type: string
+          format: uuid
+        currentStatus:
+          type: string
+          enum: [New, Screening, OnlineTest, Interview, Offer, Hired, Rejected, Withdrawn]
+        atsMatchScore:
+          type: number
+          format: float
+        candidateRatingByEmployer:
+          type: number
+          format: float
+    Screening:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        applicationId:
+          type: string
+          format: uuid
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        aiSummary:
+          type: string
+        aiScore:
+          type: number
+          format: float
+paths:
+  /jobs:
+    post:
+      summary: Create job posting
+      tags: [Jobs]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, description]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                locationCity:
+                  type: string
+                locationCountry:
+                  type: string
+      responses:
+        '201':
+          description: Job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPosting'
+    get:
+      summary: List jobs
+      tags: [Jobs]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JobPosting'
+  /jobs/{id}:
+    get:
+      summary: Get job
+      tags: [Jobs]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPosting'
+    patch:
+      summary: Update job
+      tags: [Jobs]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPosting'
+  /jobs/{id}/publish:
+    post:
+      summary: Publish job (internal and/or external channels)
+      tags: [Jobs]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                channels:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Publish triggered
+  /jobs/{id}/apply:
+    post:
+      summary: Apply to job
+      tags: [Applications]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                coverLetter:
+                  type: string
+                resumeId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Application created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+  /applications/{id}:
+    get:
+      summary: Get application
+      tags: [Applications]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Application
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+  /applications/{id}/status:
+    patch:
+      summary: Update application status
+      tags: [Applications]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                comment:
+                  type: string
+      responses:
+        '200':
+          description: Status updated
+  /applications/{id}/rate:
+    post:
+      summary: Employer rates application
+      tags: [Applications]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating]
+              properties:
+                rating:
+                  type: number
+                  minimum: 1
+                  maximum: 5
+                comment:
+                  type: string
+      responses:
+        '200':
+          description: Rating stored
+  /applications/{id}/screenings:
+    post:
+      summary: Start AI/basic screening
+      tags: [Screenings]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                templateId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Screening started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Screening'
+    get:
+      summary: List screenings for application
+      tags: [Screenings]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Screenings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Screening'
+
+

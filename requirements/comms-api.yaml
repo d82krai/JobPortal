@@ -1,0 +1,262 @@
+openapi: 3.0.3
+info:
+  title: Job Aggregator Communication API
+  version: 1.0.0
+  description: APIs for chat, calls, PII masking, and presence.
+servers:
+  - url: https://api.example.com/api/v1
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ChatThread:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        contextType:
+          type: string
+          enum: [Application, Job, Direct]
+        contextId:
+          type: string
+          format: uuid
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        threadId:
+          type: string
+          format: uuid
+        senderUserId:
+          type: string
+          format: uuid
+        messageText:
+          type: string
+        hasMaskedPii:
+          type: boolean
+        sentAt:
+          type: string
+          format: date-time
+    CallSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        threadId:
+          type: string
+          format: uuid
+        callType:
+          type: string
+          enum: [Voice, Video]
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+paths:
+  /chat/threads:
+    post:
+      summary: Create chat thread
+      tags: [Chat]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contextType:
+                  type: string
+                  enum: [Application, Job, Direct]
+                contextId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Thread created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatThread'
+    get:
+      summary: List chat threads for current user
+      tags: [Chat]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Threads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatThread'
+  /chat/threads/{id}:
+    get:
+      summary: Get chat thread
+      tags: [Chat]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Thread
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatThread'
+  /chat/threads/{id}/messages:
+    get:
+      summary: List messages in thread
+      tags: [Chat]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatMessage'
+    post:
+      summary: Send message (with PII masking)
+      tags: [Chat]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messageText]
+              properties:
+                messageText:
+                  type: string
+                  description: Raw user message. Backend will mask phone/emails.
+      responses:
+        '201':
+          description: Message created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessage'
+  /chat/threads/{id}/calls:
+    post:
+      summary: Start call in thread
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [callType]
+              properties:
+                callType:
+                  type: string
+                  enum: [Voice, Video]
+      responses:
+        '201':
+          description: Call session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallSession'
+  /calls/{id}:
+    get:
+      summary: Get call session
+      tags: [Calls]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Call session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallSession'
+  /presence/users:
+    get:
+      summary: Get presence for a list of users
+      tags: [Presence]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          schema:
+            type: string
+            description: Comma-separated user IDs
+      responses:
+        '200':
+          description: Presence list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    userId:
+                      type: string
+                      format: uuid
+                    presenceStatus:
+                      type: string
+                      enum: [Online, Away, Offline]
+                    lastActiveAt:
+                      type: string
+                      format: date-time
+
+
